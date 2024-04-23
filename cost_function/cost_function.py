@@ -10,10 +10,18 @@ from scipy.stats import spearmanr
 from scipy.stats import ks_2samp
 import sys
 import os
+import time
 
-#TODO:
-# add javadoc comments
-# make README
+"""This class calculates the cost for the mutation of all codons to each other codon in the codon set. The cumulative code cost of an arrangement of codon-to-amino
+acid mappings is calcuated. Additionally, a sample size is read in as an argument and is used to generate n (sample size) randoly assigned codon-to-amino acid
+mappings, and the costs associated with each codon mutation and the cumulative cost of each randomly generated structure of the genetic code is calculated.
+
+Result statistics and plots are generated as output and stored in the specified output folder.
+
+The time taken to run the program is printed to the terminal once the program is finished running.
+"""
+
+t0 = time.time()
 
 csv_paths = []
 for arg in sys.argv:
@@ -168,7 +176,7 @@ Higgs_amino_acid_order = ['PHE','LEU','ILE','MET','VAL','SER','PRO','THR','ALA',
     #   G   |  Val  |  Ser  |  Asp  |  Gly  |
     #_______|_______|_______|_______|_______|
 
-N = 5.7 #using the Freeland Hurst weights below
+N = 5.7 #using the Freeland Hurst weights below, calculated using calculate_N()
 FreelandHurst_mutation_weights = {}
 FreelandHurst_mutation_weights["3"] = 1/N
 FreelandHurst_mutation_weights["1ts"] = 1/N
@@ -185,25 +193,23 @@ all_N_codons = []
 purines = ['A', 'G']
 pyrimidines = ['C', 'U']
 
-#identify if codon mutation is a transition or transversion
 def tv_or_ts(true, mutant):
-    """_summary_
+    """identifies if codon mutation is a transition or transversion
 
     Args:
-        true (_type_): _description_
-        mutant (_type_): _description_
+        true (str): letter representing original nucleotide ('A', 'T', 'C' or 'G')
+        mutant (str): letter representing mutant nucleotide ('A', 'T', 'C' or 'G')
 
     Returns:
-        _type_: _description_
+        str: "ts" if mutation is a transition, "tv" if mutation is a transversion
     """
     if (true in purines and mutant in purines) or (true in pyrimidines and mutant in pyrimidines):
         return "ts"
     elif (true in purines and mutant in pyrimidines) or (true in pyrimidines and mutant in purines):
         return "tv"
 
-#calculate N constant for Freeland and Hurst weights
 def calculate_N():
-    """_summary_
+    """calculates N constant for Freeland and Hurst weights
     """
     for true_codon in codon_set:
         sum_for_N = 0
@@ -240,16 +246,16 @@ def calculate_N():
         all_N.append(sum_for_N)
         all_N_codons.append(true_codon)
 
-#calculate probability of codon mutation using Freeland and Hurst mutation weights
 def get_codon_mutation_prob(true_codon, mutant_codon):
-    """_summary_
+    """calculate the probability of a codon mutation using Freeland and Hurst mutation weights
 
     Args:
-        true_codon (_type_): _description_
-        mutant_codon (_type_): _description_
+        true_codon (str): original codon
+        mutant_codon (str): mutant codon
 
     Returns:
-        _type_: _description_
+        float or str: if the codons differ by more than one position, '-' is returned; if the codons are the same, '*' is returned; 
+        else the Freeland and Hurst codon mutation probability is returned as a float
     """
     if true_codon != mutant_codon:
         sum_of_diffs = 0
@@ -282,13 +288,12 @@ def get_codon_mutation_prob(true_codon, mutant_codon):
     elif true_codon == mutant_codon:
         return '*'
 
-#get the amino acid that a codon codes for
 def get_aa_for_codon(codon, codon_dict):
     """accesses amino acid name or stop signal based on specified codon dictionary and codon
 
     Args:
         codon (str): string specifying codon
-        codon_dict (dict of str:list of str): dictionary mapping an amino acid or stop signal to its corresponding assigned codons
+        codon_dict (dict of str:list of str): dictionary mapping an amino acid [key] or stop signal to its corresponding assigned codons [value]
 
     Returns:
         str: name of amino acid or stop signal that codon is assigned to
@@ -297,19 +302,20 @@ def get_aa_for_codon(codon, codon_dict):
         if codon in value:
             return key
 
-#calculate the cost of a codon mutation
 def get_cost(true_codon_index, mutant_codon_index, model, codon_dict, plot):
-    """calculates from of a mutation from true codon to mutant codon based on the model being used to quantify the resulting amino acid differences
+    """calculates the cost of a mutation from true codon to mutant codon based on the model being used to quantify the resulting amino acid differences
 
     Args:
-        true_codon_index (_type_): _description_
-        mutant_codon_index (_type_): _description_
-        model (_type_): _description_
-        codon_dict (_type_): _description_
-        plot (_type_): _description_
+        true_codon_index (int): index of true codon in codon list
+        mutant_codon_index (int): index of mutant codon in codon list
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        codon_dict (dict of str:list of str): dictionary mapping an amino acid [key] or stop signal to its corresponding assigned codons [value]
+        plot (bool): states whether or not this calculation is necessary for the production of a plot
 
     Returns:
-        _type_: _description_
+        str or float: if the codons differ by more than one position, '-' is returned; if the codons are the same, '*' is returned;
+        else the cost of the mutation is returned as a float
     """
     #get codon string name from it's index
     true_codon = codon_set[true_codon_index]
@@ -361,14 +367,16 @@ def get_cost(true_codon_index, mutant_codon_index, model, codon_dict, plot):
     
     return (cost)
 
-#normalise the cost value to be between 0 and 100 based on min and max cost 
 def normalise_cost(min, max, value):
-    """_summary_
+    """normalises the cost value to be between 0 and 100 based on min and max cost 
 
     Args:
-        min (_type_): _description_
-        max (_type_): _description_
-        value (_type_): _description_
+        min (float): minimum value in the set of costs within which 'value' lies
+        max (float): maximum value in the set of costs within which 'value' lies
+        value (float): cost value to be normalised between 0 and 100
+
+    Returns:
+        float: normalised cost 'value'
     """
     if max - min == 0:
         z = 0
@@ -376,15 +384,14 @@ def normalise_cost(min, max, value):
         z = ((value - min) / (max - min)) * 100
     return(z)
 
-#calculate the overall cost of the code
 def get_code_cost(cost_array):
-    """_summary_
+    """calculates the overall cost of the code
 
     Args:
-        cost_array (_type_): _description_
+        cost_array (2 dimensional list of floats and str): 2 dimensional list of the costs associated with each possible codon mutation
 
     Returns:
-        _type_: _description_
+        float: overall cost of the code
     """
     code_cost = 0
     for row in range(len(cost_array)):
@@ -393,20 +400,23 @@ def get_code_cost(cost_array):
                 code_cost += cost_array[row][cell]
     return code_cost
 
-#generate n (sample size) random assignments of codons to amino acids and calculate costs for each structure of the genetic code
-def generate_sample_set(sample_size, sample_code_costs, sample_code_costs_NORM, mode_code_cost, mode_code_cost_NORM, model, neutral_cost, neutral_cost_NORM, matrix_length):
-    """_summary_
+def generate_sample_set(sample_size, sample_code_costs, sample_code_costs_NORM, model_code_cost, model_code_cost_NORM, model, neutral_cost, neutral_cost_NORM, matrix_length):
+    """generates n (sample size) random assignments of codons to amino acids and calculate costs for each structure of the genetic code
 
     Args:
-        sample_size (_type_): _description_
-        sample_code_costs (_type_): _description_
-        sample_code_costs_NORM (_type_): _description_
-        mode_code_cost (_type_): _description_
-        mode_code_cost_NORM (_type_): _description_
-        model (_type_): _description_
-        neutral_cost (_type_): _description_
-        neutral_cost_NORM (_type_): _description_
-        matrix_length (_type_): _description_
+        sample_size (int): number of times to repeat the generation of random codon-to-amino acid assignments and code cost calculations
+        sample_code_costs (list of floats): list of the cumulative code costs for each randomly arranged structure of the genetic code
+        sample_code_costs_NORM (list of floats): list of the cumulative code costs for each normalised (0 to 100) randomly arranged structure of the genetic code
+        model_code_cost (float): cumulative code cost for the standard genetic code costs calculated using the method specified by the specific model (Higgs, PAM250, 
+        SeqPredNN, Koonin, pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        model_code_cost_NORM (float): cumulative code cost for the normalised (0 to 100) standard genetic code costs calculated using the method specified by the specific
+        model (Higgs, PAM250, SeqPredNN, Koonin, pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        codon_dict (dict of str:list of str): dictionary mapping an amino acid [key] or stop signal to its corresponding assigned codons [value]
+        neutral_cost (float): cumulative code cost for the standard genetic code costs calculated using neutral amino acid differences (all equal to 1)
+        neutral_cost_NORM (float): cumulative code cost for the normalised (0 to 100) standard genetic code costs calculated using neutral amino acid differences (all equal to 1)
+        matrix_length (int): length of codon matrix, corresponds to number of codons (64 for 'standard' mode, 16 for 'primordial' mode)
     """
     random_codon_assignments = {} #similar to codons_per_aa dict, but instead of true codon assignments, the codons are assigned randomly to amino acids
     leftover = []
@@ -452,19 +462,20 @@ def generate_sample_set(sample_size, sample_code_costs, sample_code_costs_NORM, 
         
     sample_set_stats(code_costs, norm_code_costs, model)
 
-    plot_samples(sample_size, code_costs, model, False, mode_code_cost, neutral_cost)
-    plot_samples(sample_size, norm_code_costs, model, True, mode_code_cost_NORM, neutral_cost_NORM)
+    plot_samples(sample_size, code_costs, model, False, model_code_cost, neutral_cost)
+    plot_samples(sample_size, norm_code_costs, model, True, model_code_cost_NORM, neutral_cost_NORM)
 
     code_costs.clear()
     norm_code_costs.clear()
 
 def sample_set_stats(costs, norm_costs, model):
-    """_summary_
+    """stores statistics summaries for distribution of overall code costs for randomly generated sets codon-to-amino acid assignments
 
     Args:
-        costs (_type_): _description_
-        norm_costs (_type_): _description_
-        model (_type_): _description_
+        costs (list of floats): list of overall code costs for all randomly generated codon-to-amino acid cost matrices (length = sample size)
+        norm_costs (list of floats): list of overall code costs for all randomly generated codon-to-amino acid cost matrices whose cost values have been normalised between 0 and 100
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
     """
     series = pd.Series(costs)
     series_norm = pd.Series(norm_costs)
@@ -475,22 +486,20 @@ def sample_set_stats(costs, norm_costs, model):
 
         file.write(model + "," + str(series.describe()[0]) + "," + str(series.describe()[1]) + "," + str(series.describe()[2]) + "," + str(series.describe()[3]) + "," + str(series.describe()[4]) + "," + str(series.describe()[5]) + "," + str(series.describe()[6]) + "," + str(series.describe()[7]) + "\n")
 
-        file.write(model + "NORM," + str(series_norm.describe()[0]) + "," + str(series_norm.describe()[1]) + "," + str(series_norm.describe()[2]) + "," + str(series_norm.describe()[3]) + "," + str(series_norm.describe()[4]) + "," + str(series_norm.describe()[5]) + "," + str(series_norm.describe()[6]) + "," + str(series_norm.describe()[7]) + "\n")
+        file.write(model + " NORM," + str(series_norm.describe()[0]) + "," + str(series_norm.describe()[1]) + "," + str(series_norm.describe()[2]) + "," + str(series_norm.describe()[3]) + "," + str(series_norm.describe()[4]) + "," + str(series_norm.describe()[5]) + "," + str(series_norm.describe()[6]) + "," + str(series_norm.describe()[7]) + "\n")
 
-#plot bar graphs for samples produced
 def plot_samples(sample_size, costs, model, normalised, code_cost, neutral_cost):
-    """_summary_
+    """plots bar graphs for random samples produced compared to cost of the standard genetic code for that model and for neutral amino acid differences
 
     Args:
-        sample_size (_type_): _description_
-        costs (_type_): _description_
-        model (_type_): _description_
-        normalised (_type_): _description_
-        code_cost (_type_): _description_
-        neutral_cost (_type_): _description_
-
-    Returns:
-        _type_: _description_
+        sample_size (int): number of times to repeat the generation of random codon-to-amino acid assignments and code cost calculations
+        costs (list of floats): list of the cumulative code costs for each randomly arranged structure of the genetic code
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        normalised (bool): specifies if the cost values come from a normalised cost matrix
+        code_cost (float): cumulative code cost for the standard genetic code costs calculated using the method specified by the specific model (Higgs, PAM250, 
+        SeqPredNN, Koonin, pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        neutral_cost (floats): cumulative code cost for the standard genetic code costs calculated using neutral amino acid differences (all equal to 1)
     """
     filename = ""
     title = ""
@@ -550,16 +559,14 @@ def plot_samples(sample_size, costs, model, normalised, code_cost, neutral_cost)
     plt.savefig(output_dir + "/plots/" + mode + "/" + f'{filename}.svg', format="svg")
     plt.close()
 
-    return 0
-
-#make csv files of all matrices
 def store_cost_matrices(mode, model, matrix):
-    """_summary_
+    """makes csv files of given cost matrix
 
     Args:
-        mode (_type_): _description_
-        model (_type_): _description_
-        matrix (_type_): _description_
+        mode (str): "standard" or "primordial"
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
+        matrix (2 dimensional list of floats and str): 2 dimensional list of the costs associated with each possible codon mutation
     """
     filename = output_dir + "/matrices/" + mode + "/" + model + "_cost_matrix.csv"
     codon_string = " ," + ",".join(codon_set) + "\n"
@@ -570,14 +577,14 @@ def store_cost_matrices(mode, model, matrix):
             file.write(codon_set[counter] + "," + ",".join(map(str, codon_list)) + "\n")
             counter += 1
 
-#start cost calculations
 def calculate_cost_matrix(codon_matrix, check, model):
-    """_summary_
+    """starts matrix cost calculations for this specific model 
 
     Args:
-        codon_matrix (_type_): _description_
-        check (_type_): _description_
-        model (_type_): _description_
+        codon_matrix (2 dimensional list of floats and str): 2 dimensional list of the costs associated with each possible codon mutation
+        check (list of floats): stores all numerical cost values in codon_matrix to later be used to find the minimum and maximum cost values in codon_matrix
+        model (str): name of model currently being used for cost function calculations (Higgs, PAM250, SeqPredNN, Koonin, 
+        pure SeqPredNN amino acid differences, or neutral amino acid differences)
     """
     for row in range(len(codon_matrix)):
         for cell in range(len(codon_matrix)):
@@ -587,13 +594,16 @@ def calculate_cost_matrix(codon_matrix, check, model):
                 check.append(codon_matrix[row][cell])
 
 def normalise_matrix(minimum, maximum, original_matrix, norm_check):
-    """_summary_
+    """normalises all values in original_matrix to lie between 0 and 100 
 
     Args:
-        minimum (_type_): _description_
-        maximum (_type_): _description_
-        original_matrix (_type_): _description_
-        norm_check (_type_): _description_
+        minimum (float): minimum cost value in original matrix
+        maximum (float): maximum cost value in original matrix
+        original_matrix (2 dimensional list of floats and str): 2 dimensional list of the costs associated with each possible codon mutation
+        norm_check (list of floats): stores all numerical cost values in normalised cot matrix to later be used to describe the distribution of these costs
+
+    Returns:
+        2 dimensional list of floats and str: storing normalised values from original_matrix (0 to 100)
     """
     normalised = [[0 for x in range(len(original_matrix))] for y in range(len(original_matrix))]
 
@@ -608,12 +618,15 @@ def normalise_matrix(minimum, maximum, original_matrix, norm_check):
     return(normalised)
 
 def normalise_matrix_SAMPLES(minimum, maximum, original_matrix):
-    """_summary_
+    """normalises all values in original_matrix to lie between 0 and 100 
 
     Args:
-        minimum (_type_): _description_
-        maximum (_type_): _description_
-        original_matrix (_type_): _description_
+        minimum (float): minimum cost value in original matrix
+        maximum (float): maximum cost value in original matrix
+        original_matrix (2 dimensional list of floats and str): 2 dimensional list of the costs associated with each possible codon mutation
+
+    Returns:
+        2 dimensional list of floats and str: storing normalised values from original_matrix (0 to 100)
     """
     normalised = [[0 for x in range(len(original_matrix))] for y in range(len(original_matrix))]
 
@@ -626,9 +639,8 @@ def normalise_matrix_SAMPLES(minimum, maximum, original_matrix):
 
     return(normalised)
 
-
 def spearmans_rank_correlation_tests():
-    """_summary_
+    """performs Spearman's rank correlation tests between all combinations of each model and stores the results in a csv file
     """
 
     filename = output_dir + "/stats/" + mode + "/Spearmans_rank_correlation_tests.csv"
@@ -647,9 +659,8 @@ def spearmans_rank_correlation_tests():
         file.write("Higgs vs Koonin, corr >= 0, corr < 0," + str(spearmanr(Koonin_check, Higgs_check, alternative='less').correlation) + ","  + str(spearmanr(Koonin_check, Higgs_check, alternative='less').pvalue)+ "\n")
         file.write("Higgs vs Koonin, corr <= 0, corr > 0," + str(spearmanr(Koonin_check, Higgs_check, alternative='greater').correlation) + ","  + str(spearmanr(Koonin_check, Higgs_check, alternative='greater').pvalue)+ "\n")
 
-#generate stats and store in csvs
 def stats():
-    """_summary_
+    """stores a summary of the statistics regarding each model's code costs
     """
     filename = output_dir + "/stats/" + mode + "/code_cost_stats.csv"
     with open(filename, mode="w") as file:
@@ -743,3 +754,7 @@ store_cost_matrices(mode, "PAM250_NORM", PAM250_codon_matrix_NORM)
 
 #generate stats and store in csvs
 stats()
+
+t1 = time.time()
+total = t1 - t0
+print("Total time taken: " + str(total))
