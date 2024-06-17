@@ -47,7 +47,20 @@ Higgs_distance_matrix.remove(Higgs_distance_matrix[0])
 PAM250 = list(csv.reader(open(csv_paths[4])))
 PAM250.remove(PAM250[0])
 
-output_dir = csv_paths[5]
+Katoh_Suga_matrix = list(csv.reader(open(csv_paths[5])))
+Katoh_Suga_matrix.remove(Katoh_Suga_matrix[0])
+
+for row in range(len(Katoh_Suga_matrix)): #remove first column
+    Katoh_Suga_matrix[row].remove(Katoh_Suga_matrix[row][0])
+
+#convert Katoh-Suga matrix to float values
+for i in range(len(Katoh_Suga_matrix)):
+        for j in range(len(Katoh_Suga_matrix[i])):
+            Katoh_Suga_matrix[i][j] = float(Katoh_Suga_matrix[i][j])
+
+output_dir = csv_paths[6]
+
+mutation_prob_method = csv_paths[7] # "FH" for Freeland and Hurst weights, "KS" for Katoh-Suga probabilities
 
 if not os.path.exists(output_dir): #check for output folder
     os.mkdir(output_dir)
@@ -246,6 +259,7 @@ def calculate_N():
         all_N.append(sum_for_N)
         all_N_codons.append(true_codon)
 
+#TODO: insert Katoh-Suga matrix calculations
 def get_codon_mutation_prob(true_codon, mutant_codon):
     """calculate the probability of a codon mutation using Freeland and Hurst mutation weights
 
@@ -257,36 +271,39 @@ def get_codon_mutation_prob(true_codon, mutant_codon):
         float or str: if the codons differ by more than one position, '-' is returned; if the codons are the same, '*' is returned; 
         else the Freeland and Hurst codon mutation probability is returned as a float
     """
-    if true_codon != mutant_codon:
-        sum_of_diffs = 0
-        first = 0
-        second = 0
-        third = 0
-        if true_codon[0:1] != mutant_codon[0:1]:
-            first = 1
-        if true_codon[1:2] != mutant_codon[1:2]:
-            second = 1
-        if true_codon[2:3] != mutant_codon[2:3]:
-            third = 1
-        sum_of_diffs = first + second + third
+    if mutation_prob_method == "FH":
+        if true_codon != mutant_codon:
+            sum_of_diffs = 0
+            first = 0
+            second = 0
+            third = 0
+            if true_codon[0:1] != mutant_codon[0:1]:
+                first = 1
+            if true_codon[1:2] != mutant_codon[1:2]:
+                second = 1
+            if true_codon[2:3] != mutant_codon[2:3]:
+                third = 1
+            sum_of_diffs = first + second + third
 
-        if sum_of_diffs <= 1:# differ at only 1 position
-            if first == 1: #differ in first position only
-                if tv_or_ts(true_codon[0:1], mutant_codon[0:1]) == "ts":
-                    return(FreelandHurst_mutation_weights.get("1ts"))
-                elif tv_or_ts(true_codon[0:1], mutant_codon[0:1]) == "tv":
-                    return(FreelandHurst_mutation_weights.get("1tv"))
-            elif second == 1: #differ in second position only
-                if tv_or_ts(true_codon[1:2], mutant_codon[1:2]) == "ts":
-                    return(FreelandHurst_mutation_weights.get("2ts"))
-                elif tv_or_ts(true_codon[1:2], mutant_codon[1:2]) == "tv":
-                    return(FreelandHurst_mutation_weights.get("2tv"))
-            elif third == 1: #differ in third position only
-                return(FreelandHurst_mutation_weights.get("3"))
-        elif sum_of_diffs > 1: #differ at more than one position
-            return '-'
-    elif true_codon == mutant_codon:
-        return '*'
+            if sum_of_diffs <= 1:# differ at only 1 position
+                if first == 1: #differ in first position only
+                    if tv_or_ts(true_codon[0:1], mutant_codon[0:1]) == "ts":
+                        return(FreelandHurst_mutation_weights.get("1ts"))
+                    elif tv_or_ts(true_codon[0:1], mutant_codon[0:1]) == "tv":
+                        return(FreelandHurst_mutation_weights.get("1tv"))
+                elif second == 1: #differ in second position only
+                    if tv_or_ts(true_codon[1:2], mutant_codon[1:2]) == "ts":
+                        return(FreelandHurst_mutation_weights.get("2ts"))
+                    elif tv_or_ts(true_codon[1:2], mutant_codon[1:2]) == "tv":
+                        return(FreelandHurst_mutation_weights.get("2tv"))
+                elif third == 1: #differ in third position only
+                    return(FreelandHurst_mutation_weights.get("3"))
+            elif sum_of_diffs > 1: #differ at more than one position
+                return '-'
+        elif true_codon == mutant_codon:
+            return '*'
+    elif mutation_prob_method == "KS":
+        return Katoh_Suga_matrix[codon_set.index(true_codon)][codon_set.index(mutant_codon)] #THIS LINE PREVENTS AMINO ACID PLOTS
 
 def get_aa_for_codon(codon, codon_dict):
     """accesses amino acid name or stop signal based on specified codon dictionary and codon
@@ -359,7 +376,7 @@ def get_cost(true_codon_index, mutant_codon_index, model, codon_dict, plot):
         elif codon_mutation_prob == '-':
             cost = '-'
         elif model == "amino-acid":
-            cost = 1 - float(SeqPredNN_norm_substitution_matrix[true_aa_index][mutant_aa_index])
+            cost = 1 - float(SeqPredNN_norm_substitution_matrix[true_aa_index][mutant_aa_index]) #THIS COULD BE THE ISSUE
         else:
             cost = float(codon_mutation_prob) * float(aa_difference)
         if plot == True and isinstance(cost, str):
@@ -526,8 +543,10 @@ def plot_samples(sample_size, costs, model, normalised, code_cost, neutral_cost)
 
     count = 0
     for key, value in bins.items():
-        for item in costs_temp:
-            if item >= value[0] and item <= value[1]:
+        for item in costs_temp: #not including upper bound, except for in last bin
+            if item >= value[0] and item < value[1] and key != (num_bins - 1): 
+                bin_counts[key] += 1
+            elif item >= value[0] and item <= value[1] and key == (num_bins - 1):
                 bin_counts[key] += 1
         x_bins.append("[" + str(round(bins[key][0], 3)) + " - " + str(round(bins[key][1], 3)) + "]")
         x.append(count)
@@ -542,16 +561,37 @@ def plot_samples(sample_size, costs, model, normalised, code_cost, neutral_cost)
         filename = "samples_" + model + "_NORM"    
  
     # create histogram
+    middle = (max(y) - min(y))/3
+
     line_label = model + " standard code cost"
     line_label = line_label.capitalize()
+
+    if model == "amino-acid" and mode == "primordial": #hardcode placement of line label, need to figure this out
+    #     diff = max(costs_temp) - min(costs_temp)
+    #     lower = min(costs_temp) - 0.1*diff
+    #     upper = max(costs_temp) + 0.1*diff
+    #     plt.xlim(xmin=lower, xmax=upper)
+    #     print("lower: " + str(lower))
+    #     print("upper: " + str(upper))
+        print("y-middle: " + str(middle))
+        middle = 100
+    #     print(y)
+    #     print(bins)
+    #     print("mini: " + str(mini))
+    #     print("maxi: " + str(maxi))
+    #     print("step: " + str(step))
+    #     print()
+
     plt.figure(figsize=(15, 10))
     plt.hist(costs, bins=num_bins, edgecolor='white', linewidth=0.3)
     plt.axvline(x = code_cost, color = 'red', linestyle = '--', label = "hi")
-    plt.text(code_cost + (0.01*(maxi-mini)), 150, rotation='vertical', s=line_label)
+    plt.text(code_cost + (0.01*(maxi-mini)), middle, rotation='vertical', s=line_label)
 
-    line_label = "Neutral substitutions standard code cost"
-    plt.axvline(x = neutral_cost, color = 'green', linestyle = '--', label = line_label)
-    plt.text(neutral_cost + (0.01*(maxi-mini)), 150, rotation='vertical', s=line_label)
+    if model != "neutral" and model != "amino-acid":
+        line_label = "Neutral substitutions standard code cost"
+        plt.axvline(x = neutral_cost, color = 'green', linestyle = '--', label = line_label)
+        plt.text(neutral_cost + (0.01*(maxi-mini)), middle, rotation='vertical', s=line_label)    
+
     plt.xlabel("Code cost")
     plt.ylabel("Number of occurrences")
     plt.title(title)
@@ -757,4 +797,4 @@ stats()
 
 t1 = time.time()
 total = t1 - t0
-print("Total time taken: " + str(total))
+print("Total time taken: " + str(total)) 
