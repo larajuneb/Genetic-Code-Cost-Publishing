@@ -1,0 +1,10 @@
+code cost test, Null hypothesis, Alternative hypothesis, correlation, p-value
+SeqPredNN vs Koonin, corr == 0, corr != 0,0.9986662511292158,2.0028398161230787e-94
+SeqPredNN vs Koonin, corr >= 0, corr < 0,0.9986662511292158,1.0
+SeqPredNN vs Koonin, corr <= 0, corr > 0,0.9986662511292158,1.0014199080615393e-94
+SeqPredNN vs Higgs, corr == 0, corr != 0,0.9996148775612231,7.718896687320973e-114
+SeqPredNN vs Higgs, corr >= 0, corr < 0,0.9996148775612231,1.0
+SeqPredNN vs Higgs, corr <= 0, corr > 0,0.9996148775612231,3.859448343660486e-114
+Higgs vs Koonin, corr == 0, corr != 0,0.9986949671034241,9.153030302731148e-95
+Higgs vs Koonin, corr >= 0, corr < 0,0.9986949671034241,1.0
+Higgs vs Koonin, corr <= 0, corr > 0,0.9986949671034241,4.576515151365574e-95

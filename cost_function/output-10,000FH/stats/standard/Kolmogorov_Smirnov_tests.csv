@@ -1,0 +1,7 @@
+sample code costs test, statistic, p-value
+SeqPredNN vs Koonin,1.0,0.0
+SeqPredNN NORM vs Koonin NORM,1.0,0.0
+SeqPredNN vs Higgs,1.0,0.0
+SeqPredNN NORM vs Higgs NORM,1.0,0.0
+Higgs vs Koonin,1.0,0.0
+Higgs NORM vs Koonin NORM,1.0,0.0

@@ -573,7 +573,7 @@ def plot_samples(sample_size, costs, model, normalised, code_cost, neutral_cost)
     #     plt.xlim(xmin=lower, xmax=upper)
     #     print("lower: " + str(lower))
     #     print("upper: " + str(upper))
-        print("y-middle: " + str(middle))
+        # print("y-middle: " + str(middle))
         middle = 100
     #     print(y)
     #     print(bins)
